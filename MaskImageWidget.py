@@ -48,9 +48,11 @@ class MaskImageWidget(PlotWidget):
     """
 
     """
-    sigMask
+    # TODO sigMask
     def __init__(self, parent=None, backend=None):
         super(MaskImageWidget, self).__init__(parent=parent, backend=backend)
+        self._activeImageLegend = str(id(self)) + " active image"
+        self._bgImageLegend = str(id(self)) + " background image"
 
         self._maskToolsDockWidget = None
 
@@ -104,8 +106,7 @@ class MaskImageWidget(PlotWidget):
         self.addToolBar(self._toolbar)
 
     def setSelectionMask(self, mask, copy=True):
-        """
-        Set the mask to a new array.
+        """Set the mask to a new array.
 
         :param numpy.ndarray mask: The array to use for the mask.
                     Mask type: array of uint8 of dimension 2,
@@ -130,7 +131,6 @@ class MaskImageWidget(PlotWidget):
         """
         return self.getMaskToolsDockWidget().getSelectionMask(copy=copy)
 
-
     def setBackgroundImage(self, image, xscale=(0, 1.), yscale=(0, 1.)):
         """
 
@@ -140,18 +140,21 @@ class MaskImageWidget(PlotWidget):
             *(a, b)* such as :math:`x \mapsto a + bx`
         :param yscale: Factors for polynomial scaling  for y-axis
         """
-        self.addImage(image, legend="background image",
+        self.addImage(image, legend=self._bgImageLegend,
                       origin=(xscale[0], yscale[0]),
                       scale=(xscale[1], yscale[1]),
                       z=0, replace=False)
 
     def getBackgroundImage(self):
-        # TODO
-        pass
+        """Return the background image set with :meth:`setBackgroundImage`.
 
+        :return: :class:`silx.gui.plot.items.Image` object
+        """
+        self.getImage(legend=self._bgImageLegend)
 
     def setImage(self, image, xscale=(0, 1.), yscale=(0, 1.)):
-        """
+        """Set the main (*active*) image, by providing its data as a 2D
+        array or as a pixmap.
 
         :param image: 2D image, array of shape (nrows, ncolumns)
             or (nrows, ncolumns, 3) or (nrows, ncolumns, 4) RGB(A) pixmap
@@ -159,15 +162,28 @@ class MaskImageWidget(PlotWidget):
             *(a, b)* such as :math:`x \mapsto a + bx`
         :param yscale: Factors for polynomial scaling  for y-axis
         """
-        self.addImage(image, legend="image data",
+        self.addImage(image, legend=self._activeImageLegend,
                       origin=(xscale[0], yscale[0]),
                       scale=(xscale[1], yscale[1]),
                       z=1, replace=False)
-        self.setActiveImage("image data")
+        self.setActiveImage(self._activeImageLegend)
 
-    def getImage(self):
-        pass   # TODO
+    def getImage(self, legend=None):
+        """Overloaded from :class:`silx.gui.plot.Plot.Plot`.
 
+        The normal usage in this widget is to call the method
+        without arguments (or *legend=None*). It will then return the main
+        (*active*) image set with :meth:`setImage`.
+
+        You can also get another image by specifying its legend.
+
+        :param legend: None (default value) to get the main image, or a
+            specific legend to get another image.
+        :return: :class:`silx.gui.plot.items.Image` object
+        """
+        if legend is None:
+            return super(MaskImageWidget, self).getImage(legend=self._activeImageLegend)
+        return super(MaskImageWidget, self).getImage(legend)
 
     def getMaskAction(self):
         """QAction toggling image mask dock widget
@@ -215,7 +231,9 @@ class MaskImageWidget(PlotWidget):
                 else:
                     raise RuntimeError()
 
-        toolbar.addWidget(ActiveImageAlphaSlider(self, self))
+        alpha_slider = ActiveImageAlphaSlider(parent=self, plot=self)
+        alpha_slider.setOrientation(qt.Qt.Horizontal)
+        toolbar.addWidget(alpha_slider)
 
         return toolbar
 
@@ -268,7 +286,7 @@ if __name__ == "__main__":
     img = numpy.asarray(numpy.sin(x * y) / (x * y),
                         dtype='float32')
 
-    miw.setImageData(img)
+    miw.setImage(img)
     miw.setBackgroundImage(bg_img)
     miw.show()
     app.exec_()
