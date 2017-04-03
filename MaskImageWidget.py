@@ -41,7 +41,7 @@ from silx.gui.plot import PlotWidget
 from silx.gui.plot import MaskToolsWidget
 from silx.gui.plot import PlotActions
 from silx.gui.plot import PlotToolButtons
-from silx.gui.plot.ImageAlphaSlider import ActiveImageAlphaSlider
+from silx.gui.plot.AlphaSlider import ActiveImageAlphaSlider
 
 
 class MaskImageWidget(PlotWidget):
@@ -51,8 +51,8 @@ class MaskImageWidget(PlotWidget):
     # TODO sigMask
     def __init__(self, parent=None, backend=None):
         super(MaskImageWidget, self).__init__(parent=parent, backend=backend)
-        self._activeImageLegend = str(id(self)) + " active image"
-        self._bgImageLegend = str(id(self)) + " background image"
+        self._activeImageLegend = "active image"
+        self._bgImageLegend = "background image"
 
         self._maskToolsDockWidget = None
 
@@ -150,7 +150,7 @@ class MaskImageWidget(PlotWidget):
 
         :return: :class:`silx.gui.plot.items.Image` object
         """
-        self.getImage(legend=self._bgImageLegend)
+        return self.getImage(legend=self._bgImageLegend)
 
     def setImage(self, image, xscale=(0, 1.), yscale=(0, 1.)):
         """Set the main (*active*) image, by providing its data as a 2D

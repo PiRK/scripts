@@ -37,13 +37,136 @@ It is structured in three superposed layers:
 import numpy
 
 from silx.gui import qt
+from silx.gui import icons
 from silx.gui.plot import PlotWidget
 from silx.gui.plot import PlotActions
 from silx.gui.plot import PlotToolButtons
 
+from silx.gui.plot.AlphaSlider import NamedScatterAlphaSlider
+
 # TODO:
 #   Mask
 #   Colormap handling
+from silx.gui.plot.ColormapDialog import ColormapDialog
+
+
+class ColormapToolButton(qt.QToolButton):
+    def __init__(self, parent=None, plot=None):
+        self._bg_dialog = None
+        self._scatter_dialog = None
+        super(ColormapToolButton, self).__init__(parent)
+        self.plot = plot
+
+        icon = icons.getQIcon('colormap')
+        self.setIcon(icon)
+
+        bgImageCmapAction = qt.QAction("Background image colormap",
+                                       self)
+        bgImageCmapAction.triggered.connect(self._setBgCmap)
+
+        scatterCmapAction = qt.QAction("Scatter colormap", self)
+        scatterCmapAction.triggered.connect(self._setScatterCmap)
+
+        menu = qt.QMenu(self)
+        menu.addAction(bgImageCmapAction)
+        menu.addAction(scatterCmapAction)
+        self.setMenu(menu)
+        self.setPopupMode(qt.QToolButton.InstantPopup)
+
+    def _setBgCmap(self):
+        if self._bg_dialog is None:
+            self._bg_dialog = ColormapDialog()
+
+        image = self.plot.getBackgroundImage()
+        if image is None:
+            # No active image, set dialog from default info
+            colormap = self.plot.getDefaultColormap()
+
+            self._bg_dialog.setHistogram()  # Reset histogram and range if any
+
+        else:
+            # Set dialog from active image
+            colormap = image.getColormap()
+
+            data = image.getData(copy=False)
+
+            goodData = data[numpy.isfinite(data)]
+            if goodData.size > 0:
+                dataMin = goodData.min()
+                dataMax = goodData.max()
+            else:
+                qt.QMessageBox.warning(
+                    self, "No Data",
+                    "Image data does not contain any real value")
+                dataMin, dataMax = 1., 10.
+
+            self._bg_dialog.setHistogram()
+            self._bg_dialog.setDataRange(dataMin, dataMax)
+
+        self._bg_dialog.setColormap(**colormap)
+
+        # Run the dialog listening to colormap change
+        self._bg_dialog.sigColormapChanged.connect(self._bgColormapChanged)
+        result = self._bg_dialog.exec_()
+        self._bg_dialog.sigColormapChanged.disconnect(self._bgColormapChanged)
+
+        if not result:  # Restore the previous colormap
+            self._bgColormapChanged(colormap)
+
+    def _bgColormapChanged(self, colormap):
+        image = self.plot.getBackgroundImage()
+        if image is not None:
+            # Update image: This do not preserve pixmap
+            self.plot.setBackgroundImage(image.getData(copy=False),
+                                         colormap=colormap)
+
+    def _setScatterCmap(self):
+        if self._scatter_dialog is None:
+            self._scatter_dialog = ColormapDialog()
+
+        scatter = self.plot.getScatter()
+        if scatter is None:
+            # No active scatter, set dialog from default info
+            colormap = self.plot.getDefaultColormap()
+
+            self._scatter_dialog.setHistogram()  # Reset histogram and range if any
+
+        else:
+            # Set dialog from active scatter
+            colormap = scatter.getColormap()
+
+            data = scatter.getValueData(copy=False)
+
+            goodData = data[numpy.isfinite(data)]
+            if goodData.size > 0:
+                dataMin = goodData.min()
+                dataMax = goodData.max()
+            else:
+                qt.QMessageBox.warning(
+                    self, "No Data",
+                    "Image data does not contain any real value")
+                dataMin, dataMax = 1., 10.
+
+            self._scatter_dialog.setHistogram()
+            self._scatter_dialog.setDataRange(dataMin, dataMax)
+        self._scatter_dialog.setColormap(**colormap)
+
+        # Run the dialog listening to colormap change
+        self._scatter_dialog.sigColormapChanged.connect(self._scatterColormapChanged)
+        result = self._scatter_dialog.exec_()
+        self._scatter_dialog.sigColormapChanged.disconnect(self._scatterColormapChanged)
+
+        if not result:  # Restore the previous colormap
+            self._bgColormapChanged(colormap)
+
+    def _scatterColormapChanged(self, colormap):
+        scatter = self.plot.getScatter()
+        if scatter is not None:
+            self.plot.setScatter(scatter.getXData(copy=False),
+                                 scatter.getYData(copy=False),
+                                 scatter.getValueData(copy=False),
+                                 info=scatter.getInfo(),
+                                 colormap=colormap)
 
 
 class MaskScatterWidget(PlotWidget):
@@ -79,8 +202,7 @@ class MaskScatterWidget(PlotWidget):
             PlotActions.YAxisAutoScaleAction(self))
         self.addAction(self.yAxisAutoScaleAction)
 
-        self.colormapAction = self.group.addAction(PlotActions.ColormapAction(self))
-        self.addAction(self.colormapAction)
+        self.colormapButton = ColormapToolButton(parent=self, plot=self)
 
         self.keepDataAspectRatioButton = PlotToolButtons.AspectToolButton(
             parent=self, plot=self)
@@ -102,6 +224,9 @@ class MaskScatterWidget(PlotWidget):
 
         self.printAction = self.group.addAction(PlotActions.PrintAction(self))
         self.addAction(self.printAction)
+
+        self.alphaSlider = NamedScatterAlphaSlider(parent=self, plot=self)
+        self.alphaSlider.setOrientation(qt.Qt.Horizontal)
 
         # Creating the toolbar also create actions for toolbuttons
         self._toolbar = self._createToolBar(title='Plot', parent=None)
@@ -136,7 +261,8 @@ class MaskScatterWidget(PlotWidget):
         pass   # todo
         # return self.getMaskToolsDockWidget().getSelectionMask(copy=copy)
 
-    def setBackgroundImage(self, image, xscale=(0, 1.), yscale=(0, 1.)):
+    def setBackgroundImage(self, image, xscale=(0, 1.), yscale=(0, 1.),
+                           colormap=None):
         """
 
         :param image: 2D image, array of shape (nrows, ncolumns)
@@ -148,16 +274,17 @@ class MaskScatterWidget(PlotWidget):
         self.addImage(image, legend=self._bgImageLegend,
                       origin=(xscale[0], yscale[0]),
                       scale=(xscale[1], yscale[1]),
-                      z=0, replace=False)
+                      z=0, replace=False,
+                      colormap=colormap)
 
     def getBackgroundImage(self):
         """Return the background image set with :meth:`setBackgroundImage`.
 
         :return: :class:`silx.gui.plot.items.Image` object
         """
-        self.getImage(legend=self._bgImageLegend)
+        return self.getImage(legend=self._bgImageLegend)
 
-    def setScatter(self, x, y, v=None):
+    def setScatter(self, x, y, v=None, info=None, colormap=None):
         """Set the scatter data, by providing its data as a 1D
         array or as a pixmap.
 
@@ -166,14 +293,21 @@ class MaskScatterWidget(PlotWidget):
         :param v: Array of values for each point, represented as the color
              of the point on the plot.
         """
-        self.addScatter(x, y, v, legend=self._activeScatterLegend)
+        self.addScatter(x, y, v, legend=self._activeScatterLegend,
+                        info=info, colormap=colormap)
+        self.alphaSlider.setLegend(self._activeScatterLegend)
 
-    def getScatter(self):
+    def getScatter(self, legend=None):
         """Return the currently displayed scatter.
 
-        :return: :class:`silx.gui.plot.items.Curve` object
+        :param legend: None (default value) to get the main scatter, or a
+            specific legend to get another scatter.
+        :return: :class:`silx.gui.plot.items.Scatter` object
         """
-        return self.scatter  # FIXME: return an official plot Scatter object, when available
+        if legend is None:
+            return super(MaskScatterWidget, self).getScatter(
+                    legend=self._activeScatterLegend)
+        return super(MaskScatterWidget, self).getScatter(legend)
 
     # def getMaskAction(self):
     #     """QAction toggling image mask dock widget
@@ -205,25 +339,28 @@ class MaskScatterWidget(PlotWidget):
         objects = self.group.actions()
 
         # Add push buttons to list
-        index = objects.index(self.colormapAction)
-        objects.insert(index + 1, self.keepDataAspectRatioButton)
-        objects.insert(index + 2, self.yAxisInvertedButton)
+        index = objects.index(self.yAxisAutoScaleAction)
+
+        objects.insert(index + 1, self.colormapButton)
+        objects.insert(index + 2, self.keepDataAspectRatioButton)
+        objects.insert(index + 3, self.yAxisInvertedButton)
+        objects.insert(index + 4, self.alphaSlider)
 
         for obj in objects:
             if isinstance(obj, qt.QAction):
                 toolbar.addAction(obj)
             else:
                 # keep reference to toolbutton's action for changing visibility
-                if obj is self.keepDataAspectRatioButton:
+                if obj is self.colormapButton:
+                    self.colormapAction = toolbar.addWidget(obj)
+                elif obj is self.keepDataAspectRatioButton:
                     self.keepDataAspectRatioAction = toolbar.addWidget(obj)
                 elif obj is self.yAxisInvertedButton:
                     self.yAxisInvertedAction = toolbar.addWidget(obj)
+                elif obj is self.alphaSlider:
+                    self.alphaSliderAction = toolbar.addWidget(obj)
                 else:
                     raise RuntimeError()
-
-        # alpha_slider = ActiveImageAlphaSlider(parent=self, plot=self)
-        # alpha_slider.setOrientation(qt.Qt.Horizontal)
-        # toolbar.addWidget(alpha_slider)
 
         return toolbar
 
@@ -273,7 +410,7 @@ if __name__ == "__main__":
     x = 50 + 80 * numpy.linspace(0, twopi, num=100) / twopi * numpy.cos(numpy.linspace(0, twopi, num=100))
     y = 150 + 150 * numpy.linspace(0, twopi, num=100) / twopi * numpy.sin(numpy.linspace(0, twopi, num=100))
 
-    v = numpy.arange(100)
+    v = numpy.arange(100) / 3.14
 
     msw.setScatter(x, y, v=v)
     msw.setBackgroundImage(bg_img)
