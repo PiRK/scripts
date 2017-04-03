@@ -38,107 +38,12 @@ import numpy
 
 from silx.gui import qt
 from silx.gui.plot import PlotWidget
-# from silx.gui.plot import MaskToolsWidget
 from silx.gui.plot import PlotActions
 from silx.gui.plot import PlotToolButtons
-# from silx.gui.plot.ImageAlphaSlider import ActiveImageAlphaSlider
 
-
-# FIXME: remove this block when plot item Scatter is implemented
-import silx.gui
-import matplotlib.cm
-import matplotlib.colors
-default_cmap = silx.gui.plot.MPLColormap.viridis
-
-
-def _applyColormap(values,
-                   colormap=default_cmap,
-                   minVal=None,
-                   maxVal=None,):
-    """Compute RGBA array of shape (n, 4) from a 1D array of length n.
-
-    :param values: 1D array of values
-    :param colormap: colormap to be used
-    """
-    values_array = numpy.array(values)
-    if minVal is None:
-        minVal = values_array.min()
-    if maxVal is None:
-        maxVal = values_array.max()
-    sm = matplotlib.cm.ScalarMappable(
-            norm=matplotlib.colors.Normalize(vmin=minVal, vmax=maxVal),
-            cmap=colormap)
-    colors = sm.to_rgba(values)
-    return colors
-# end of block to be removed
-
-
-class Scatter2D(object):
-    """Container for scatter data, with a plot method."""
-    def __init__(self, x, y, values=None, xerror=None, yerror=None,
-                 info=None, legend=None):
-        """
-
-        :param x: 1D array of abscissa values
-        :param y: 1D array of ordinates values
-        :param values: Optional data values, to be represented as a color
-        """
-        if hasattr(x, "shape"):
-            assert x.shape == y.shape
-            if values is not None:
-                assert values.shape == x.shape
-        else:
-            assert len(x) == len(y)
-            if values is not None:
-                assert len(values) == len(x)
-
-        self.x = x
-        """1D array of abscissa"""
-        self.y = y
-        """1D array of ordinates"""
-        self.values = values
-        """Optional data values assigned to (x, y) points"""
-
-        self.info = info or {}
-        """Dictionary of user meta-data associated with this scatter."""
-
-        self.legend = legend
-        """Legend to be used as an identifier for the scatter
-        data in the plot"""
-
-        self.xerror = xerror
-        self.yerror = yerror
-
-    @property
-    def rows(self):
-        """Rows coordinates (ordinate).
-        Alias for :attr:`y`"""
-        return self.y
-
-    @property
-    def columns(self):
-        """Columns coordinates (abscissa).
-        Alias for :attr:`x`"""
-        return self.x
-
-    def plot(self, plot, symbol="s",
-             resetzoom=True, replace=False,
-             xlabel=None, ylabel=None, z=None):
-        """
-
-        :param plot: Plot widget on which to plot the scatter data
-        :param symbol: 'o' circle, '.' point, ',' pixel, 'x' x-cross,
-            'd' diamond,'s' square
-        :return:
-        """
-        colors = None
-        if self.values is not None:
-            colors = _applyColormap(v)
-        return plot.addCurve(x, y, color=colors, z=z, info=self.info,
-                             xerror=self.xerror, yerror=self.yerror,
-                             legend=self.legend, xlabel=xlabel, ylabel=ylabel,
-                             resetzoom=resetzoom, replace=replace,
-                             symbol=symbol, linestyle="")
+# TODO:
+#   Mask
+#   Colormap handling
 
 
 class MaskScatterWidget(PlotWidget):
@@ -148,8 +53,8 @@ class MaskScatterWidget(PlotWidget):
     # TODO sigMask
     def __init__(self, parent=None, backend=None):
         super(MaskScatterWidget, self).__init__(parent=parent, backend=backend)
-        self._activeScatterLegend = str(id(self)) + " active scatter"
-        self._bgImageLegend = str(id(self)) + " background image"
+        self._activeScatterLegend = "active scatter"
+        self._bgImageLegend = "background image"
         #
         # self._maskToolsDockWidget = None
 
@@ -261,11 +166,7 @@ class MaskScatterWidget(PlotWidget):
         :param v: Array of values for each point, represented as the color
              of the point on the plot.
         """
-        sc = Scatter2D(x, y, v)
-        sc.plot(plot=self)
-        self.scatter = sc
-
-        # self.setActiveCurve(self._activeScatterLegend)
+        self.addScatter(x, y, v, legend=self._activeScatterLegend)
 
     def getScatter(self):
         """Return the currently displayed scatter.
