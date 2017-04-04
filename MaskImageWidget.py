@@ -43,6 +43,8 @@ from silx.gui.plot import PlotActions
 from silx.gui.plot import PlotToolButtons
 from silx.gui.plot.AlphaSlider import ActiveImageAlphaSlider
 
+# TODO: bg colormap handling? see MaskScatterWidget
+
 
 class MaskImageWidget(PlotWidget):
     """

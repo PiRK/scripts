@@ -174,6 +174,10 @@ class MaskScatterWidget(PlotWidget):
 
     """
     # TODO sigMask
+    sigActiveScatterChanged = qt.Signal()
+    """emitted when active scatter is removed, added, or set
+    (:meth:`setScatter`)"""
+
     def __init__(self, parent=None, backend=None):
         super(MaskScatterWidget, self).__init__(parent=parent, backend=backend)
         self._activeScatterLegend = "active scatter"
@@ -233,6 +237,12 @@ class MaskScatterWidget(PlotWidget):
         self.addToolBar(self._toolbar)
 
         self.setActiveCurveHandling(False)   # avoids color change when selecting
+
+        self.sigContentChanged.connect(self._onContentChanged)
+
+    def _onContentChanged(self, action, kind, legend):
+        if kind == "scatter" and legend == self._activeScatterLegend:
+            self.sigActiveScatterChanged.emit()
 
     def setSelectionMask(self, mask, copy=True):
         """Set the mask to a new array.
@@ -295,7 +305,9 @@ class MaskScatterWidget(PlotWidget):
         """
         self.addScatter(x, y, v, legend=self._activeScatterLegend,
                         info=info, colormap=colormap)
+
         self.alphaSlider.setLegend(self._activeScatterLegend)
+        self.sigActiveScatterChanged.emit()
 
     def getScatter(self, legend=None):
         """Return the currently displayed scatter.
