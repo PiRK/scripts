@@ -49,6 +49,8 @@ from silx.gui.plot.AlphaSlider import NamedScatterAlphaSlider
 #   Colormap handling
 from silx.gui.plot.ColormapDialog import ColormapDialog
 
+import ScatterMaskToolsWidget
+
 
 class ColormapToolButton(qt.QToolButton):
     def __init__(self, parent=None, plot=None):
@@ -182,8 +184,8 @@ class MaskScatterWidget(PlotWidget):
         super(MaskScatterWidget, self).__init__(parent=parent, backend=backend)
         self._activeScatterLegend = "active scatter"
         self._bgImageLegend = "background image"
-        #
-        # self._maskToolsDockWidget = None
+
+        self._maskToolsDockWidget = None
 
         # Init actions
         self.group = qt.QActionGroup(self)
@@ -214,7 +216,7 @@ class MaskScatterWidget(PlotWidget):
         self.yAxisInvertedButton = PlotToolButtons.YAxisOriginToolButton(
             parent=self, plot=self)
 
-        # self.group.addAction(self.getMaskAction())
+        self.group.addAction(self.getMaskAction())
 
         self._separator = qt.QAction('separator', self)
         self._separator.setSeparator(True)
@@ -254,10 +256,8 @@ class MaskScatterWidget(PlotWidget):
                           False to use it as is if possible.
         :return: None if failed, shape of mask as 1-tuple if successful.
         """
-        #TODO
-        pass
-        # return self.getMaskToolsDockWidget().setSelectionMask(mask,
-        #                                                       copy=copy)
+        return self.getMaskToolsDockWidget().setSelectionMask(mask,
+                                                              copy=copy)
 
     def getSelectionMask(self, copy=True):
         """Get the current mask as a 1D array.
@@ -268,8 +268,7 @@ class MaskScatterWidget(PlotWidget):
                  If there is no scatter data, an empty array is returned.
         :rtype: 1D numpy.ndarray of uint8
         """
-        pass   # todo
-        # return self.getMaskToolsDockWidget().getSelectionMask(copy=copy)
+        return self.getMaskToolsDockWidget().getSelectionMask(copy=copy)
 
     def setBackgroundImage(self, image, xscale=(0, 1.), yscale=(0, 1.),
                            colormap=None):
@@ -321,23 +320,23 @@ class MaskScatterWidget(PlotWidget):
                     legend=self._activeScatterLegend)
         return super(MaskScatterWidget, self).getScatter(legend)
 
-    # def getMaskAction(self):
-    #     """QAction toggling image mask dock widget
-    #
-    #     :rtype: QAction
-    #     """
-    #     return self.getMaskToolsDockWidget().toggleViewAction()
-    #
-    # def getMaskToolsDockWidget(self):
-    #     """DockWidget with image mask panel (lazy-loaded)."""
-    #     if self._maskToolsDockWidget is None:
-    #         self._maskToolsDockWidget = MaskToolsWidget.MaskToolsDockWidget(
-    #             plot=self, name='Mask')
-    #         self._maskToolsDockWidget.hide()
-    #         self.addDockWidget(qt.Qt.BottomDockWidgetArea,
-    #                            self._maskToolsDockWidget)
-    #
-    #     return self._maskToolsDockWidget
+    def getMaskAction(self):
+        """QAction toggling image mask dock widget
+
+        :rtype: QAction
+        """
+        return self.getMaskToolsDockWidget().toggleViewAction()
+
+    def getMaskToolsDockWidget(self):
+        """DockWidget with image mask panel (lazy-loaded)."""
+        if self._maskToolsDockWidget is None:
+            self._maskToolsDockWidget = ScatterMaskToolsWidget.MaskToolsDockWidget(
+                plot=self, name='Mask')
+            self._maskToolsDockWidget.hide()
+            self.addDockWidget(qt.Qt.BottomDockWidgetArea,
+                               self._maskToolsDockWidget)
+
+        return self._maskToolsDockWidget
 
     def _createToolBar(self, title, parent):
         """Create a QToolBar from the QAction of the PlotWindow.
@@ -356,7 +355,6 @@ class MaskScatterWidget(PlotWidget):
         objects.insert(index + 1, self.colormapButton)
         objects.insert(index + 2, self.keepDataAspectRatioButton)
         objects.insert(index + 3, self.yAxisInvertedButton)
-        objects.insert(index + 4, self.alphaSlider)
 
         for obj in objects:
             if isinstance(obj, qt.QAction):
@@ -374,6 +372,7 @@ class MaskScatterWidget(PlotWidget):
                 else:
                     raise RuntimeError()
 
+        self.alphaSliderAction = toolbar.addWidget(self.alphaSlider)
         return toolbar
 
     def saveSession(self, uri=None, sessionFile=None, h5path="/"):
