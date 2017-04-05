@@ -232,9 +232,6 @@ class MaskToolsWidget(qt.QWidget):
         self._defaultOverlayColor = rgba('gray')  # Color of the mask
         self._setMaskColors(1, 0.5)
 
-        # FIXME: delete later
-        # self._origin = (0., 0.)  # Mask origin in plot
-        # self._scale = (1., 1.)  # Mask scale in plot
         self._z = 2  # Mask layer in plot
         self._data_scatter = None
         """plot Scatter item for data"""
@@ -250,6 +247,7 @@ class MaskToolsWidget(qt.QWidget):
         self._multipleMasks = 'exclusive'
 
         super(MaskToolsWidget, self).__init__(parent)
+
         self._initWidgets()
 
         self._maskFileDir = qt.QDir.home().absolutePath()
@@ -688,7 +686,6 @@ class MaskToolsWidget(qt.QWidget):
                                  z=self._z)
             self._mask_scatter = self.plot._getItem(kind="scatter",
                                                     legend=self._maskName)
-            self._mask_scatter.setAlpha(0.5)
         elif self.plot._getItem(kind="scatter",
                                 legend=self._maskName) is not None:
             self.plot.remove(self._maskName, kind='scatter')
