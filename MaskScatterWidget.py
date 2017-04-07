@@ -44,12 +44,9 @@ from silx.gui.plot import PlotToolButtons
 
 from silx.gui.plot.AlphaSlider import NamedScatterAlphaSlider
 
-# TODO:
-#   Mask
-#   Colormap handling
 from silx.gui.plot.ColormapDialog import ColormapDialog
 
-import ScatterMaskToolsWidget
+from silx.gui.plot import ScatterMaskToolsWidget
 
 
 class ColormapToolButton(qt.QToolButton):
@@ -330,7 +327,7 @@ class MaskScatterWidget(PlotWidget):
     def getMaskToolsDockWidget(self):
         """DockWidget with image mask panel (lazy-loaded)."""
         if self._maskToolsDockWidget is None:
-            self._maskToolsDockWidget = ScatterMaskToolsWidget.MaskToolsDockWidget(
+            self._maskToolsDockWidget = ScatterMaskToolsWidget.ScatterMaskToolsDockWidget(
                 plot=self, name='Mask')
             self._maskToolsDockWidget.hide()
             self.addDockWidget(qt.Qt.BottomDockWidgetArea,
