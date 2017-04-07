@@ -93,7 +93,10 @@ class ScatterMask(BaseMask):
             self._mask[indices] = level
         else:
             # unmask only where mask level is the specified value
-            self._mask[indices][self._mask[indices] == level] = 0
+            indices_stencil = numpy.zeros_like(self._mask, dtype=numpy.bool)
+            indices_stencil[indices] = True
+            self._mask[numpy.logical_and(self._mask == level,
+                                         indices_stencil)    ] = 0   # noqa
         self._notify()
 
     # update shapes
