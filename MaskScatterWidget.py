@@ -48,6 +48,13 @@ from silx.gui.plot.ColormapDialog import ColormapDialog
 
 from silx.gui.plot import ScatterMaskToolsWidget
 
+from silx.io import is_file
+
+try:
+    import h5py
+except ImportError:
+    h5py = None
+
 
 class ColormapToolButton(qt.QToolButton):
     def __init__(self, parent=None, plot=None):
@@ -372,39 +379,67 @@ class MaskScatterWidget(PlotWidget):
         self.alphaSliderAction = toolbar.addWidget(self.alphaSlider)
         return toolbar
 
-    def saveSession(self, uri=None, sessionFile=None, h5path="/"):
+    def saveSession(self, path):
         """Save session data to an HDF5 file.
 
         Data saved:
          - background image (2D dataset) with xscale and yscale
-         - scatter data (1D dataset)
+         - scatter data: x, y, values (3 x 1D datasets)
          - mask (1D array)
 
-        :param str uri: URI of group where to save data (e.g.
-            /path/to/myfile.h5::/datapath).
-        :param sessionFile: Name/path of output file, or h5py.File instance.
-            This parameter and ``uri`` are mutually exclusive.
-        :param str h5path: Path to output group relative to file root
-            This parameter and ``uri`` are mutually exclusive.
+        :param path: Name/path of output file.
         """
-        pass   # TODO
+        if h5py is None:
+            print("Error: h5py is required in order to save session")
+            return
 
-    def loadSession(self, uri=None, sessionFile=None, h5path=""):
+        bgImage = self.getBackgroundImage()
+        scatter = self.getScatter()
+
+        sessionFile = h5py.File(path, "w")
+
+        sessionFile["background"] = bgImage.getData()
+        sessionFile["background X scale"] = [
+            bgImage.getOrigin()[0],
+            bgImage.getScale()[0]]
+        sessionFile["background Y scale"] = [
+            bgImage.getOrigin()[1],
+            bgImage.getScale()[1]]
+
+        sessionFile["scatter x"] = scatter.getXData()
+        sessionFile["scatter y"] = scatter.getYData()
+        sessionFile["scatter values"] = scatter.getValueData()
+
+        sessionFile["mask"] = self.getSelectionMask()
+        sessionFile.close()
+
+    def loadSession(self, path):
         """Load session from an HDF5 file.
 
         Data loaded:
          - background image (2D dataset) with xscale and yscale
-         - image data (1D dataset)
+         - scatter data: x, y, values (3 x 1D datasets)
          - mask (1D array)
 
-        :param str uri: URI of group where to save data (e.g.
-            /path/to/myfile.h5::/datapath).
-        :param sessionFile: Name/path of session file, or h5py.File instance.
-            This parameter and ``uri`` are mutually exclusive.
-        :param str h5path: Path to output group relative to file root.
-            This parameter and ``uri`` are mutually exclusive.
+        :param path: Name/path of session file
         """
-        pass  # TODO
+        if not is_file(path):
+            raise IOError("Cannot read %s as an HDF5 file")
+        # todo: sanity tests
+
+        sessionFile = h5py.File(path, "r")
+
+        self.setBackgroundImage(sessionFile["background"],
+                                xscale=sessionFile["background X scale"],
+                                yscale=sessionFile["background Y scale"])
+
+        self.setScatter(sessionFile["scatter x"],
+                        sessionFile["scatter y"],
+                        sessionFile["scatter values"])
+
+        self.setSelectionMask(sessionFile["mask"])
+
+        sessionFile.close()
 
 
 if __name__ == "__main__":

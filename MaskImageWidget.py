@@ -43,6 +43,13 @@ from silx.gui.plot import PlotActions
 from silx.gui.plot import PlotToolButtons
 from silx.gui.plot.AlphaSlider import ActiveImageAlphaSlider
 
+from silx.io import is_file
+
+try:
+    import h5py
+except ImportError:
+    h5py = None
+
 # TODO: bg colormap handling? see MaskScatterWidget
 
 
@@ -239,7 +246,7 @@ class MaskImageWidget(PlotWidget):
 
         return toolbar
 
-    def saveSession(self, uri=None, sessionFile=None, h5path="/"):
+    def saveSession(self, path):
         """Save session data to an HDF5 file.
 
         Data saved:
@@ -247,17 +254,37 @@ class MaskImageWidget(PlotWidget):
          - image data (2D dataset) with xscale and yscale
          - mask (2D array)
 
-        :param str uri: URI of group where to save data (e.g.
-            /path/to/myfile.h5::/datapath).
-        :param sessionFile: Name/path of output file, or h5py.File instance.
-            This parameter and ``uri`` are mutually exclusive.
-        :param str h5path: Path to output group relative to file root
-            This parameter and ``uri`` are mutually exclusive.
-
+        :param path: Name/path of output file.
         """
-        pass   # TODO
+        if h5py is None:
+            print("Error: h5py is required in order to save session")
+            return
 
-    def loadSession(self, uri=None, sessionFile=None, h5path=""):
+        bgImage = self.getBackgroundImage()
+        image = self.getImage()
+
+        sessionFile = h5py.File(path, "w")
+
+        sessionFile["background"] = bgImage.getData()
+        sessionFile["background X scale"] = [
+            bgImage.getOrigin()[0],
+            bgImage.getScale()[0]]
+        sessionFile["background Y scale"] = [
+            bgImage.getOrigin()[1],
+            bgImage.getScale()[1]]
+
+        sessionFile["image"] = image.getData()
+        sessionFile["image X scale"] = [
+            image.getOrigin()[0],
+            image.getScale()[0]]
+        sessionFile["image Y scale"] = [
+            image.getOrigin()[1],
+            image.getScale()[1]]
+
+        sessionFile["mask"] = self.getSelectionMask()
+        sessionFile.close()
+
+    def loadSession(self, path):
         """Load session from an HDF5 file.
 
         Data loaded:
@@ -265,14 +292,23 @@ class MaskImageWidget(PlotWidget):
          - image data (2D dataset) with xscale and yscale
          - mask (2D array)
 
-        :param str uri: URI of group where to save data (e.g.
-            /path/to/myfile.h5::/datapath).
-        :param sessionFile: Name/path of session file, or h5py.File instance.
-            This parameter and ``uri`` are mutually exclusive.
-        :param str h5path: Path to output group relative to file root.
-            This parameter and ``uri`` are mutually exclusive.
+        :param path: Name/path of session file
         """
-        pass  # TODO
+        if not is_file(path):
+            raise IOError("Cannot read %s as an HDF5 file")
+        # todo: sanity tests
+
+        sessionFile = h5py.File(path, "r")
+
+        self.setBackgroundImage(sessionFile["background"],
+                                xscale=sessionFile["background X scale"],
+                                yscale=sessionFile["background Y scale"])
+        self.setImage(sessionFile["image"],
+                      xscale=sessionFile["image X scale"],
+                      yscale=sessionFile["image Y scale"])
+        self.setSelectionMask(sessionFile["mask"])
+
+        sessionFile.close()
 
 
 if __name__ == "__main__":
